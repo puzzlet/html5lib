@@ -45,7 +45,7 @@ class HTML5_TestableTokenizer extends HTML5_Tokenizer
                 $attr = new stdclass();
                 foreach ($token['attr'] as $keypair) {
                     // XXX this is IMPORTANT behavior, check if it's
-                    // in TreeConstructer
+                    // in TreeBuilder
                     $name = $keypair['name'];
                     if (isset($attr->$name)) continue;
                     $attr->$name = $keypair['value'];
@@ -64,6 +64,7 @@ class HTML5_TestableTokenizer extends HTML5_Tokenizer
                 $this->outputTokens[] = array('Comment', $token['data']);
                 break;
             case self::CHARACTER:
+            case self::SPACECHARACTER:
                 if (count($this->outputTokens)) {
                     $old = array_pop($this->outputTokens);
                     if ($old[0] === 'Character') {
