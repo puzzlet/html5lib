@@ -1026,10 +1026,11 @@ class HTML5_Tokenizer {
                     } else {
                         /* U+0022 QUOTATION MARK (")
                            U+0027 APOSTROPHE (')
+                           U+003C LESS-THAN SIGN (<)
                            U+003D EQUALS SIGN (=)
                         Parse error. Treat it as per the "anything else"
                         entry below. */
-                        if($char === '"' || $char === "'" || $char === '=') {
+                        if($char === '"' || $char === "'" || $char === '=' || $char == '<') {
                             $this->emitToken(array(
                                 'type' => self::PARSEERROR,
                                 'data' => 'unexpected-character-in-unquoted-attribute-value'
@@ -1361,6 +1362,21 @@ class HTML5_Tokenizer {
                         ));
                         $this->token['data'] .= '-';
 
+                    } elseif($char === "\t" || $char === "\n" || $char === "\x0a" || $char === ' ') {
+                        $this->emitToken(array(
+                            'type' => self::PARSEERROR,
+                            'data' => 'unexpected-space-after-double-dash-in-comment'
+                        ));
+                        $this->token['data'] .= '--' . $char;
+                        $state = 'comment end space';
+
+                    } elseif($char === '!') {
+                        $this->emitToken(array(
+                            'type' => self::PARSEERROR,
+                            'data' => 'unexpected-bang-after-double-dash-in-comment'
+                        ));
+                        $state = 'comment end bang';
+
                     } elseif($char === false) {
                         /* EOF
                         Parse error. Emit the comment token. Reconsume the
@@ -1383,6 +1399,55 @@ class HTML5_Tokenizer {
                             'data' => 'unexpected-char-in-comment'
                         ));
                         $this->token['data'] .= '--'.$char;
+                        $state = 'comment';
+                    }
+                break;
+
+                case 'comment end bang':
+                    $char = $this->stream->char();
+                    if ($char === '>') {
+                        $this->emitToken($this->token);
+                        $state = 'data';
+                    } elseif ($char === "-") {
+                        $this->token['data'] .= '--!';
+                        $state = 'comment end dash';
+                    } elseif ($char === false) {
+                        $this->emitToken(array(
+                            'type' => self::PARSEERROR,
+                            'data' => 'eof-in-comment-end-bang'
+                        ));
+                        $this->emitToken($this->token);
+                        $this->stream->unget();
+                        $state = 'data';
+                    } else {
+                        $this->emitToken(array(
+                            'type' => self::PARSEERROR,
+                            'data' => 'unexpected-char-in-comment-end-bang',
+                        ));
+                        $this->token['data'] .= '--!' . $char;
+                        $state = 'comment';
+                    }
+                break;
+
+                case 'comment end space':
+                    $char = $this->stream->char();
+                    if ($char === '>') {
+                        $this->emitToken($this->token);
+                        $state = 'data';
+                    } elseif ($char === '-') {
+                        $state = 'comment end dash';
+                    } elseif ($char === "\t" || $char === "\n" || $char === "\x0c" || $char === ' ') {
+                        $this->token['data'] .= $char;
+                    } elseif ($char === false) {
+                        $this->emitToken(array(
+                            'type' => self::PARSEERROR,
+                            'data' => 'unexpected-eof-in-comment-end-space',
+                        ));
+                        $this->emitToken($this->token);
+                        $this->stream->unget();
+                        $state = 'data';
+                    } else {
+                        $this->token['data'] .= $char;
                         $state = 'comment';
                     }
                 break;
@@ -2228,6 +2293,16 @@ class HTML5_Tokenizer {
             /* If no match can be made, then this is a parse error.
             No characters are consumed, and nothing is returned. */
             if (!$codepoint) {
+                // XERROR: per r3146 this doesn't always result in a
+                // parse error
+                /* If the current state is not the character reference in 
+                 * attribute value state, or the U+0026 AMPERSAND character is 
+                 * not followed by one or more characters in the ranges U+0030 
+                 * DIGIT ZERO to U+0039 DIGIT NINE, U+0041 LATIN CAPITAL LETTER 
+                 * A to U+005A LATIN CAPITAL LETTER Z, and U+0061 LATIN SMALL 
+                 * LETTER A to U+007A LATIN SMALL LETTER Z, followed by a 
+                 * U+003D EQUALS SIGN character (=), then this is also a parse 
+                 * error. */
                 $this->emitToken(array(
                     'type' => self::PARSEERROR,
                     'data' => 'expected-named-entity'

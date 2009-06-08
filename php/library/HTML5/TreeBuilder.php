@@ -100,8 +100,13 @@ class HTML5_TreeBuilder {
     private function strConst($number) {
         static $lookup;
         if (!$lookup) {
+            $lookup = array();
             $r = new ReflectionClass('HTML5_TreeBuilder');
-            $lookup = array_flip($r->getConstants());
+            $consts = $r->getConstants();
+            foreach ($consts as $const => $num) {
+                if (!is_int($num)) continue;
+                $lookup[$num] = $const;
+            }
         }
         return $lookup[$number];
     }
@@ -154,6 +159,7 @@ class HTML5_TreeBuilder {
         $this->printStack();
         $this->printActiveFormattingElements();
         if ($this->foster_parent) echo "  -> this is a foster parent mode\n";
+        if ($this->flag_frameset_ok) echo "  -> frameset ok\n";
         */
 
         if ($this->ignore_lf_token) $this->ignore_lf_token--;
@@ -1109,8 +1115,10 @@ class HTML5_TreeBuilder {
 
                 /* A start tag whose tag name is "table" */
                 case 'table':
-                    /* If the stack of open elements has a p element in scope,
-                    then act as if an end tag with the tag name p had been seen. */
+                    /* If the Document is not set to quirks mode, and the 
+                     * stack of open elements has a p element in scope, then 
+                     * act as if an end tag with the tag name "p" had been 
+                     * seen. */
                     if($this->quirks_mode !== self::QUIRKS_MODE &&
                     $this->elementInScope('p')) {
                         $this->emitToken(array(
@@ -2631,7 +2639,7 @@ class HTML5_TreeBuilder {
             ));
 
         } elseif($token['type'] === HTML5_Tokenizer::STARTTAG &&
-        ($token['name'] === 'input' || $token['name'] === 'textarea')) {
+        ($token['name'] === 'input' || $token['name'] === 'keygen' ||  $token['name'] === 'textarea')) {
             // parse error
             $this->emitToken(array(
                 'name' => 'select',
