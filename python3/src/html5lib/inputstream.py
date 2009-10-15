@@ -455,7 +455,7 @@ class EncodingBytes(bytes):
     If the position is ever greater than the string length then an exception is
     raised"""
     def __new__(self, value):
-        return str.__new__(self, value)
+        return bytes.__new__(self, value)
 
     def __init__(self, value):
         self._position = -1
@@ -729,7 +729,7 @@ def codecName(encoding):
     string doesn't correspond to a valid encoding."""
     if type(encoding) == bytes:
         encoding = str(encoding, "ascii")
-    if (encoding is not None and type(encoding) in str):
+    if (encoding is not None) and (type(encoding) == str):
         canonicalName = ascii_punctuation_re.sub("", encoding).lower()
         return encodings.get(canonicalName, None)
     else:
